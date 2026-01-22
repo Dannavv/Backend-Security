@@ -2,12 +2,26 @@
 
 ## Part 1: The Fundamental Problem
 
-File uploads are the highest-risk feature in any web application. CSV is particularly dangerous because:
+Because **CSV is not a format — it’s a *convention***. This is where most security vulnerabilities begin.
 
-1.  **No reliable fingerprint** — Unlike images or PDFs, CSV has no magic bytes.
-2.  **Trusted by spreadsheets** — Excel/LibreOffice auto-execute certain patterns.
-3.  **Processed server-side** — Imported into databases, triggering further vulnerabilities.
-4.  **"Admin-only" is false comfort** — Attackers specifically target admin accounts.
+### Why CSV is Tricky
+Unlike PDFs or images, CSV suffers from a "Parser + Application" gap:
+
+*   **No Real Spec**: RFC 4180 is widely ignored or treated as optional.
+*   **No Magic Bytes**: There is no unique binary signature to verify file integrity.
+*   **Parser Disagreement**: Different parsers handle quotes, escapes, and newlines in conflicting ways.
+*   **Application Ambiguity**: CSVs are often opened by **Excel**, not just programmatic parsers.
+*   **Data as Code**: Excel treats certain cell prefixes (`=`, `+`, `-`, `@`) as **formulas**, meaning data becomes executable code at open time.
+
+### The SQL Connection
+CSV is dangerous when it becomes **untrusted input for SQL**:
+
+*   **Bypassing Validation**: Direct CSV → SQL imports often skip standard application-level validation.
+*   **Breaking Parsers**: Advanced formula or quote tricks can "break" the parser, leading to malformed queries.
+*   **Encoding Shifts**: Subtle encoding issues can change the meaning of a query between the parser and the database.
+*   **Impact Amplification**: Bulk inserts allow a single file to poison thousands of records instantly.
+
+CSV isn’t dangerous by itself—it’s dangerous **when blindly mapped to SQL fields**.
 
 ---
 

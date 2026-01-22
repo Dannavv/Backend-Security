@@ -4,6 +4,14 @@ A defense-in-depth secure CSV import system designed to prevent common and advan
 
 > **Security First Architecture**: Every file is treated as hostile until proven otherwise.
 
+## ❓ Why CSV Security is Hard
+
+CSV is not a format — it’s a **convention**. This ambiguity makes it one of the most dangerous file types to handle:
+
+*   **The Parser + Application Gap**: Unlike PDFs, CSV has no "magic bytes" or strict spec. A file that looks like harmless text to your backend might be interpreted as **executable formulas** when opened in Excel.
+*   **Data as Code**: Cell prefixes like `=`, `+`, `-`, and `@` trigger automatic execution in spreadsheet software, turning data into code at open time.
+*   **Blind SQL Mapping**: Problems arise when CSVs are mapped directly to SQL fields, bypassing validation and allowing "parser breaking" tricks to poison database integrity.
+
 ## 🎯 Features
 
 *   **Isolated Quarantine System**: Uploads are processed in a separate directory outside the web root.

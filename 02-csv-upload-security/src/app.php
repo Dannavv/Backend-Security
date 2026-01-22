@@ -20,7 +20,8 @@ define('FORMULA_TRIGGERS', ['=', '+', '-', '@', "\t", "\r", "\n"]);
 define('QUARANTINE_PATH', '/var/quarantine/uploads');
 define('LOG_PATH', '/var/log/csv-security');
 define('ALLOWED_EXTENSIONS', ['csv', 'txt']);
-define('ALLOWED_MIME_TYPES', ['text/csv', 'text/plain', 'application/csv', 'application/octet-stream']);
+define('ALLOWED_MIME_TYPES', ['text/csv', 'text/plain', 'application/csv']);
+define('MAX_ERROR_COUNT', 50); // Cap errors to prevent DB DoS
 
 // Executable / Script signatures
 define('BINARY_SIGNATURES', [
@@ -87,32 +88,48 @@ class CSVSecurity {
         return !empty($token) && hash_equals($_SESSION['csrf'] ?? '', $token);
     }
 
-    /** Rate Limiting */
+    /** Rate Limiting (IP + Session Dimension) */
     public static function checkRateLimit(string $ip): bool {
         $db = getDB();
+        $sessionId = session_id();
+        
+        // Check IP limit
         $stmt = $db->prepare("SELECT COUNT(*) FROM rate_limits WHERE identifier = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 MINUTE)");
         $stmt->execute([$ip]);
         if ((int)$stmt->fetchColumn() >= RATE_LIMIT_PER_MINUTE) return true;
+
+        // Check Session limit (if session exists)
+        if ($sessionId) {
+            $stmt = $db->prepare("SELECT COUNT(*) FROM rate_limits WHERE identifier = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 MINUTE)");
+            $stmt->execute([$sessionId]);
+            if ((int)$stmt->fetchColumn() >= RATE_LIMIT_PER_MINUTE) return true;
+        }
         
         $db->prepare("INSERT INTO rate_limits (identifier, identifier_type, action) VALUES (?, 'ip', 'upload')")->execute([$ip]);
+        if ($sessionId) {
+            $db->prepare("INSERT INTO rate_limits (identifier, identifier_type, action) VALUES (?, 'session', 'upload')")->execute([$sessionId]);
+        }
         return false;
     }
 
-    /** File Validation (Binary/Size/Type) */
+    /** File Validation (Content-First) */
     public static function validateFile(array $file): array {
         if ($file['error'] !== UPLOAD_ERR_OK) return ["Upload error: " . $file['error']];
         if ($file['size'] > MAX_FILE_SIZE) return ["File too large"];
         
-        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        if (!in_array($ext, ALLOWED_EXTENSIONS)) return ["Invalid extension"];
+        // 1. MIME Validation (Trust content, not extension)
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->file($file['tmp_name']);
+        if (!in_array($mime, ALLOWED_MIME_TYPES)) {
+            return ["Security Violation: Disallowed file type ($mime)"];
+        }
 
-        // Check for null bytes and binary headers in the first 8KB
-        $handle = fopen($file['tmp_name'], 'rb');
-        $header = fread($handle, 8192);
-        fclose($handle);
-
+        // 2. Full Content Signature Scan (Catch polyglots beyond 8KB)
+        $content = file_get_contents($file['tmp_name']);
         foreach (BINARY_SIGNATURES as $sig => $name) {
-            if (strpos($header, $sig) !== false) return ["Security Violation: $name detected"];
+            if (strpos($content, $sig) !== false) {
+                return ["Security Violation: $name detected in file content"];
+            }
         }
         return [];
     }
@@ -127,18 +144,18 @@ class CSVSecurity {
         return null;
     }
 
-    /** Encoding Validation (Layer 5) */
-    public static function validateUtf8(string $input): bool {
-        // Reject invalid UTF-8
-        if (!mb_check_encoding($input, 'UTF-8')) return false;
-        
-        // Reject Overlong Encodings (Security Bypass)
-        if (mb_convert_encoding($input, 'UTF-8', 'UTF-8') !== $input) return false;
+    /** Encoding Validation + Normalization (Layer 5) */
+    public static function validateAndNormalize(string $input): ?string {
+        if (!mb_check_encoding($input, 'UTF-8')) return null;
+        if (mb_convert_encoding($input, 'UTF-8', 'UTF-8') !== $input) return null;
+        if (preg_match('/\+[A-Za-z0-9+\/]+-/', $input)) return null;
 
-        // Reject UTF-7 (XSS Bypass)
-        if (preg_match('/\+[A-Za-z0-9+\/]+-/', $input)) return false;
-
-        return true;
+        // Secure Normalization (NFC) - requires 'intl' extension
+        if (class_exists('Normalizer')) {
+            $normalized = Normalizer::normalize($input, Normalizer::FORM_C);
+            return $normalized !== false ? $normalized : $input;
+        }
+        return $input;
     }
 
     /** Business Logic Validation (Layer 7) */
@@ -194,25 +211,33 @@ class CSVProcessor {
                 
                 $data = array_combine($headers, $row);
 
-                // Encoding Check
-                foreach ($data as $cell) {
-                    if (!CSVSecurity::validateUtf8($cell)) {
-                        $results['errors'][] = "Row {$results['rows']}: Invalid Encoding/UTF-7 detected";
+                // Encoding Check & Normalization
+                foreach ($data as $key => $cell) {
+                    $normalizedCell = CSVSecurity::validateAndNormalize($cell);
+                    if ($normalizedCell === null) {
+                        if (count($results['errors']) < MAX_ERROR_COUNT) {
+                            $results['errors'][] = "Row {$results['rows']}: Invalid Encoding/UTF-7 detected";
+                        }
                         continue 2;
                     }
+                    $data[$key] = $normalizedCell;
                 }
 
                 // Formula Check (Strict Block)
                 $formulaError = CSVSecurity::validateFormulas($data);
                 if ($formulaError) {
-                    $results['errors'][] = "Row {$results['rows']}: {$formulaError}";
+                    if (count($results['errors']) < MAX_ERROR_COUNT) {
+                        $results['errors'][] = "Row {$results['rows']}: {$formulaError}";
+                    }
                     continue;
                 }
 
                 // Business Logic Check
                 $logicErrors = CSVSecurity::validateBusinessLogic($data);
                 if (!empty($logicErrors)) {
-                    $results['errors'][] = "Row {$results['rows']}: " . implode(", ", $logicErrors);
+                    if (count($results['errors']) < MAX_ERROR_COUNT) {
+                        $results['errors'][] = "Row {$results['rows']}: " . implode(", ", $logicErrors);
+                    }
                     continue;
                 }
                 

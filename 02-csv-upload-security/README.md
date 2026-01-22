@@ -15,13 +15,13 @@ CSV is not a format — it’s a **convention**. This ambiguity makes it one of 
 ## 🎯 Features
 
 *   **Isolated Quarantine System**: Uploads are processed in a separate directory outside the web root.
-*   **Formula Neutralization**: Prevents Excel/Spreadsheet RCE via CSV Injection prefixes.
-*   **Deep Content Inspection**: Scans binary signatures to detect polyglot attacks and disguised executables.
-*   **Atomic Transactions**: Multi-stage imports ensure database integrity (all-or-nothing).
-*   **Encoding Shield**: Detects UTF-7 and Overlong UTF-8 bypass attempts.
-*   **Forensic Audit Trail**: Detailed logging of IP, User Agent, and action results for accountability.
-*   **Business Logic Validation**: Domain-specific data integrity checks (e.g., non-negative values).
-*   **Rate Limiting & CSRF**: Built-in protection against DoS and request forgery.
+*   **Strict Formula Guard**: Identifies and blocks malicious spreadsheet prefixes (`=`, `+`, `-`, `@`) to prevent CSV injection.
+*   **Content-First Inspection**: Relies on real MIME detection (`finfo`) and full-file signature scanning, bypassing weak extension checks.
+*   **Atomic Transactions**: Multi-stage imports ensure database integrity (all-or-nothing commit).
+*   **Normalization Shield**: Detects UTF-7, Overlong UTF-8, and normalizes characters (NFC) to prevent bypasses.
+*   **Forensic Audit Trail**: Detailed logging of IP, Session, User Agent, and action results for accountability.
+*   **DoS Protection**: Capped error collection (max 50) prevents database and memory exhaustion from junk files.
+*   **Multi-Dimensional Rate Limiting**: Tracking per IP and per Session to block sophisticated attackers.
 *   **Hardened Security Headers**: CSP, HSTS, and X-Frame-Options configured by default.
 
 ## 📁 System Architecture
@@ -48,14 +48,14 @@ The application logic has been consolidated into a focused, highly auditable cor
 | Layer | Defense | Description |
 | :--- | :--- | :--- |
 | **1** | **CSRF Protection** | Validates `hash_equals` token for every POST request. |
-| **2** | **Rate Limiting** | Limits uploads to 10/min per IP to prevent DoS. |
-| **3** | **Deep Inspection** | Scans file headers for binary signatures (ELF, EXE, PHP). |
-| **4** | **Formula Guard** | Prefixes cells starting with `=`, `+`, `-`, `@` with `'`. |
-| **5** | **Encoding Shield** | Detects UTF-7/Overlong encoding bypass attempts. |
+| **2** | **Multi-Dim Rate Limiting** | Limits uploads per IP + Session (10/min) to prevent DoS. |
+| **3** | **Content-First Scan** | Uses MIME detection & full-file binary scan (ELF, EXE, PHP). |
+| **4** | **Strict Formula Guard** | Rejects rows starting with dangerous triggers (`=`, `+`, `-`, `@`). |
+| **5** | **Normalization Shield** | NFC Normalization + UTF-7/Overlong detection. |
 | **6** | **Business Logic** | Validates data integrity (e.g. negative salaries, email formats). |
-| **7** | **Atomic Commit** | Uses DB transactions to ensure data consistency. |
+| **7** | **Atomic Commit & Cap** | Transactions for consistency + Error Capping to prevent DB DoS. |
 | **8** | **Quarantine** | Processes uploads outside the public web root. |
-| **9** | **Audit Trail** | Detailed forensic logs of every action. |
+| **9** | **Audit Trail** | Detailed forensic logs of every action, including session IDs. |
 | **10** | **Hardened Headers** | Blocks XSS and Clickjacking via CSP and X-Frame-Options. |
 
 ## 🚀 Usage

@@ -37,26 +37,29 @@ public static function validateCSRF(string $token): bool {
 ```
 **Principle**: Unpredictable token in every form.
 
-### Layer 2: Rate Limiting
+### Layer 2: Rate Limiting (Multi-Dimensional)
 **Concept**: Prevents Denial of Service (DoS) and brute-force attempts.
 **Defense Implementation** (`src/app.php`):
 ```php
 public static function checkRateLimit(string $ip): bool {
-    $stmt = $db->prepare("SELECT COUNT(*) FROM rate_limits WHERE identifier = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 MINUTE)");
-    // ...
+    // 1. IP-based tracking
+    // 2. Session-based tracking (prevents IP rotation bypass)
 }
 ```
-**Principle**: Per-IP limits to protect server resources.
+**Principle**: Per-IP and Per-Session limits to protect server resources.
 
-### Layer 3: Deep Inspection (Content Disguise)
-**Concept**: Filename is attacker-controlled metadata. `backdoor.php` renamed to `data.csv` is still PHP.
+### Layer 3: Content-First Deep Inspection
+**Concept**: Filename and extension are attacker-controlled. `backdoor.php` renamed to `data.csv` is still PHP.
 **Defense Implementation** (`src/app.php`):
 ```php
+$finfo = new finfo(FILEINFO_MIME_TYPE);
+$mime = $finfo->file($file); // Real MIME detection
+// Full Content Scan
 foreach (BINARY_SIGNATURES as $sig => $name) {
-    if (strpos($header, $sig) !== false) return ["Violation Detected"];
+    if (strpos($content, $sig) !== false) return ["Violation Detected"];
 }
 ```
-**Principle**: Examine actual bytes. Executables have distinctive signatures (ELF, MZ, Shebang).
+**Principle**: Trust content, not metadata. Full-file scanning catches polyglots hidden beyond the header.
 
 ### Layer 4: Formula Guard (Injection)
 **The Attack**: Cell starting with `=`, `+`, `-`, `@` executes when opened in spreadsheet.
@@ -72,14 +75,15 @@ public static function validateFormulas(array $row): ?string {
 ```
 **Principle**: Reject/Block malicious rows. Never allow executable patterns into the database.
 
-### Layer 5: Encoding Shield
-**Vectors**: UTF-7 bypass (`+ADw-script...`), Overlong UTF-8.
+### Layer 5: Encoding & Normalization Shield
+**Vectors**: UTF-7 bypass (`+ADw-script...`), Overlong UTF-8, and malformed character sequences.
 **Defense Implementation** (`src/app.php`):
 ```php
 if (!mb_check_encoding($input, 'UTF-8')) return false;
-if (mb_convert_encoding($input, 'UTF-8', 'UTF-8') !== $input) return false;
+// Normalization (NFC) prevents bypasses via alternative byte sequences
+$normalized = Normalizer::normalize($input, Normalizer::FORM_C);
 ```
-**Principle**: Enforce single encoding (UTF-8). Reject invalid sequences.
+**Principle**: Enforce single encoding (UTF-8) and normalize characters to prevent visual spoofing or filter bypasses.
 
 ### Layer 6: Business Logic Validation
 **Concept**: Data poisoning or privilege escalation via import (e.g., uploading negative salaries).
@@ -91,15 +95,18 @@ public static function validateBusinessLogic(array $row): array {
 ```
 **Principle**: Domain-specific validation. Each field has business meaning.
 
-### Layer 7: Atomic Commit (Transaction Integrity)
-**Problems without transactions**: Error at row 500 leaves 499 orphaned rows.
+### Layer 7: Atomic Commit & DoS Protection
+**Problems**: Partial data corruption or Database DoS via millions of validation errors.
 **Defense Implementation** (`src/app.php`):
 ```php
 $db->beginTransaction();
-// ... execute staging inserts ...
+if (count($errors) < MAX_ERROR_COUNT) { // Error Capping
+    $errors[] = "...";
+}
+// Fail-Closed: Only commit if errors == 0
 $db->commit();
 ```
-**Principle**: Atomic operations. Staging tables prevent partial data corruption.
+**Principle**: Atomic operations. Staging tables prevent corruption; error capping prevents resource exhaustion.
 
 ### Layer 8: Isolated Quarantine
 **Architecture**: Processes uploads outside the public web root (`/var/quarantine/uploads`).

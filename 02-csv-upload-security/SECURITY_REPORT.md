@@ -48,11 +48,15 @@ foreach (BINARY_SIGNATURES as $sig => $name) {
 **The Attack**: Cell starting with `=`, `+`, `-`, `@` executes when opened in spreadsheet.
 **Defense Implementation** (`src/app.php`):
 ```php
-if (is_string($cell) && !empty($cell) && in_array($cell[0], FORMULA_TRIGGERS, true)) {
-    $cell = "'" . $cell;
+public static function validateFormulas(array $row): ?string {
+    foreach ($row as $cell) {
+        if (is_string($cell) && in_array($cell[0], FORMULA_TRIGGERS, true)) {
+            return "Formula Injection Detected";
+        }
+    }
 }
 ```
-**Principle**: Neutralize with apostrophe prefix. Never strip data.
+**Principle**: Reject/Block malicious rows. Never allow executable patterns into the database.
 
 ### Layer 5: Encoding Shield
 **Vectors**: UTF-7 bypass (`+ADw-script...`), Overlong UTF-8.

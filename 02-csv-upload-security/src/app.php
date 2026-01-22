@@ -116,17 +116,16 @@ class CSVSecurity {
         return [];
     }
 
-    /** Formula Neutralization */
-    public static function neutralize(array &$row): int {
-        $count = 0;
-        foreach ($row as &$cell) {
+    /** Formula Validation (Rejection) */
+    public static function validateFormulas(array $row): ?string {
+        foreach ($row as $cell) {
             if (is_string($cell) && !empty($cell) && in_array($cell[0], FORMULA_TRIGGERS, true)) {
-                $cell = "'" . $cell;
-                $count++;
+                return "Formula Injection Detected: Cell starts with '" . $cell[0] . "'";
             }
         }
-        return $count;
+        return null;
     }
+
     /** Encoding Validation (Layer 5) */
     public static function validateUtf8(string $input): bool {
         // Reject invalid UTF-8
@@ -164,7 +163,7 @@ class CSVSecurity {
             ['name' => 'CSRF Protection', 'icon' => '🛡️', 'desc' => 'Cryptographic tokens for every state-changing request.'],
             ['name' => 'Rate Limiting', 'icon' => '⏳', 'desc' => 'Prevents DoS/Brute-force by limiting requests per IP.'],
             ['name' => 'Deep Inspection', 'icon' => '🔍', 'desc' => 'Scans file headers for binary signatures (ELF, EXE, PHP).'],
-            ['name' => 'Formula Guard', 'icon' => '🧪', 'desc' => 'Neutralizes spreadsheet formula injection (CSV Injection).'],
+            ['name' => 'Formula Guard', 'icon' => '🧪', 'desc' => 'Identifies and rejects spreadsheet formula injection attempts.'],
             ['name' => 'Encoding Shield', 'icon' => '🔣', 'desc' => 'Detects UTF-7/Overlong encoding bypass attempts.'],
             ['name' => 'Business Logic', 'icon' => '⚖️', 'desc' => 'Validates data integrity (e.g. negative salaries, email formats).'],
             ['name' => 'Atomic Commits', 'icon' => '⚛️', 'desc' => 'Uses database transactions for all-or-nothing imports.'],
@@ -202,27 +201,38 @@ class CSVProcessor {
                     }
                 }
 
+                // Formula Check (Strict Block)
+                $formulaError = CSVSecurity::validateFormulas($data);
+                if ($formulaError) {
+                    $results['errors'][] = "Row {$results['rows']}: {$formulaError}";
+                    continue;
+                }
+
                 // Business Logic Check
                 $logicErrors = CSVSecurity::validateBusinessLogic($data);
                 if (!empty($logicErrors)) {
                     $results['errors'][] = "Row {$results['rows']}: " . implode(", ", $logicErrors);
                     continue;
                 }
-
-                $results['neutralized'] += CSVSecurity::neutralize($data);
                 
                 // Insert into staging
                 $db->prepare("INSERT INTO csv_staging (batch_id, `row_number`, original_data, sanitized_data, validation_status) VALUES (?, ?, ?, ?, 'valid')")
                    ->execute([$batchId, $results['rows'], json_encode($data), json_encode($data)]);
             }
             
-            // Atomic commit to production
-            $db->prepare("INSERT INTO csv_imports (batch_id, `row_number`, original_data, sanitized_data) SELECT batch_id, `row_number`, original_data, sanitized_data FROM csv_staging WHERE batch_id = ?")->execute([$batchId]);
-            $db->prepare("DELETE FROM csv_staging WHERE batch_id = ?")->execute([$batchId]);
-            $db->commit();
+            
+            // Fail Closed: Only commit if NO errors occurred across the entire file
+            if (empty($results['errors'])) {
+                $db->prepare("INSERT INTO csv_imports (batch_id, `row_number`, original_data, sanitized_data) SELECT batch_id, `row_number`, original_data, sanitized_data FROM csv_staging WHERE batch_id = ?")->execute([$batchId]);
+                $db->prepare("DELETE FROM csv_staging WHERE batch_id = ?")->execute([$batchId]);
+                $db->commit();
+            } else {
+                $db->rollBack();
+                $db->prepare("DELETE FROM csv_staging WHERE batch_id = ?")->execute([$batchId]);
+            }
         } catch (Exception $e) {
-            $db->rollBack();
-            $results['errors'][] = $e->getMessage();
+            if ($db->inTransaction()) $db->rollBack();
+            $results['errors'][] = "System Error: " . $e->getMessage();
         }
         
         fclose($handle);

@@ -1,0 +1,4 @@
+id,text
+1,Valid UTF-8
+2,Invalid ÿþ Sequence
+3,Overlong À¯

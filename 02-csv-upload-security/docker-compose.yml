@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: csv-security-php
+    ports:
+      - "8082:80"
+    volumes:
+      - ./src:/var/www/html
+      - ./quarantine:/var/quarantine
+      - ./logs:/var/log/csv-security
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - DB_HOST=mysql
+      - DB_NAME=csv_security
+      - DB_USER=csv_user
+      - DB_PASS=csv_secure_pass_2024
+    networks:
+      - csv-security-net
+
+  mysql:
+    image: mysql:8.0
+    container_name: csv-security-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_secure_2024
+      MYSQL_DATABASE: csv_security
+      MYSQL_USER: csv_user
+      MYSQL_PASSWORD: csv_secure_pass_2024
+    volumes:
+      - csv-mysql-data:/var/lib/mysql
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_secure_2024"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - csv-security-net
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: csv-security-pma
+    ports:
+      - "8083:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: root
+      PMA_PASSWORD: root_secure_2024
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - csv-security-net
+
+volumes:
+  csv-mysql-data:
+
+networks:
+  csv-security-net:
+    driver: bridge

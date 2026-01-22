@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8085:80"
+    environment:
+      - DB_HOST=mysql
+      - DB_NAME=image_security
+      - DB_USER=image_user
+      - DB_PASS=image_secure_pass_2024
+    depends_on:
+      - mysql
+    volumes:
+      - ./src:/var/www/html
+      - ./logs:/var/log/app
+      - ./quarantine:/var/www/quarantine
+    networks:
+      - security-net
+
+  mysql:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      - MYSQL_DATABASE=image_security
+      - MYSQL_USER=image_user
+      - MYSQL_PASSWORD=image_secure_pass_2024
+      - MYSQL_ROOT_PASSWORD=root_pass_image_2024
+    volumes:
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - security-net
+
+networks:
+  security-net:
+    driver: bridge

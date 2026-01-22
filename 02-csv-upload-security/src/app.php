@@ -24,7 +24,7 @@ define('ALLOWED_MIME_TYPES', ['text/csv', 'text/plain', 'application/csv', 'appl
 
 // Executable / Script signatures
 define('BINARY_SIGNATURES', [
-    "\x7fELF" => 'ELF', "MZ" => 'Windows EXE', "<?php" => 'PHP', "<?" => 'PHP/XML', "#!/" => 'Shebang', "\x00" => 'Binary'
+    "\x7fELF" => 'ELF', "MZ" => 'Windows EXE', "<?php" => 'PHP', "<?" => 'PHP/XML', "#!/" => 'Shebang', "\x00" => 'Null Byte Injection'
 ]);
 
 // =========================================================================
@@ -106,12 +106,13 @@ class CSVSecurity {
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         if (!in_array($ext, ALLOWED_EXTENSIONS)) return ["Invalid extension"];
 
+        // Check for null bytes and binary headers in the first 8KB
         $handle = fopen($file['tmp_name'], 'rb');
-        $header = fread($handle, 1024);
+        $header = fread($handle, 8192);
         fclose($handle);
 
         foreach (BINARY_SIGNATURES as $sig => $name) {
-            if (strpos($header, $sig) !== false) return ["Security Violation: $name content detected"];
+            if (strpos($header, $sig) !== false) return ["Security Violation: $name detected"];
         }
         return [];
     }

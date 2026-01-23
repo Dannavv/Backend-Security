@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8085:80"
+    volumes:
+      - ./src:/var/www/html
+      - ./logs:/var/www/logs
+      - ./quarantine:/var/www/quarantine
+      - ./uploads:/var/www/uploads
+    environment:
+      - DB_HOST=db
+      - DB_USER=security_user
+      - DB_PASS=security_pass
+      - DB_NAME=unified_security_db
+    depends_on:
+      - db
+
+  db:
+    image: mariadb:10.6
+    environment:
+      - MYSQL_DATABASE=unified_security_db
+      - MYSQL_USER=security_user
+      - MYSQL_PASSWORD=security_pass
+      - MYSQL_ROOT_PASSWORD=root_pass
+    volumes:
+      - ./mysql:/docker-entrypoint-initdb.d
+    ports:
+      - "3310:3306"

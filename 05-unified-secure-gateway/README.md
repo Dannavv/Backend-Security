@@ -1,6 +1,6 @@
 # 🛡️ 05. Unified Secure Gateway Infrastructure
 
-A production-hardened, multi-engine file processing infrastructure representing the **apex** of the series. This final module integrates the defensive stratagems from **Chapter 2 (CSV)**, **Chapter 3 (PDF)**, and **Chapter 4 (Images)** into a high-performance **Security Perimeter** with unified orchestration and forensic intelligence.
+A production-hardened, multi-engine file processing infrastructure representing the **apex** of the series. This final module integrates the defensive stratagems from **Chapter 2 (CSV)**, **Chapter 3 (PDF)**, and **Chapter 4 (Images)** into a single, high-performance **Security Perimeter** with unified orchestration and forensic intelligence.
 
 > **The Unified Sanitization Doctrine**: Traditional detection is reactive. This gateway adopts a **"Reconstruction-First"** policy. We discard the original file container entirely, extracting only the verified data and re-authoring every document from scratch. If it doesn't survive the deconstruction, it doesn't enter the system.
 
@@ -8,37 +8,61 @@ A production-hardened, multi-engine file processing infrastructure representing 
 
 ## 💎 Integrated Module Features
 
-### 1. 📊 CSV Guard Engine (The Data-Integrity Core)
-- **Formula Guard Authority**: A non-bypassable validator for spreadsheet command triggers (`=`, `@`, `+`, `-`).
-- **NFC Normalization Shield**: Enforces UTF-8 (NFC) encoding to kill UTF-7 and overlong-encoding bypasses.
-- **Atomic Staging Workflow**: Implements a "Staging-to-Production" commit model. Files are validated row-by-row in an isolated table before commitment.
+### 1. 📊 CSV Guard Engine (Chapter 2 Integration)
+The CSV engine protects against both **Spreadsheet Client Exploits** and **SQL Data Poisoning**.
 
-### 2. 📄 PDF Bastion Engine (The Structural Guardian)
-- **Semantic Tree Inspection**: Uses `qpdf` engines to walk the actual logical object tree, neutralizing `/JS`, `/Launch`, and `/OpenAction` directives.
-- **Linearized Re-Authoring**: Physically rewrites the PDF to flatten XRef tables, destroying "Chameleon" polyglots hidden in document streams.
-- **Structural DoS Guard**: Enforces hard complexity caps (Object count <50,000) to block "PDF Bombs."
-
-### 3. 🖼️ Image Sentinel Engine (The Pixel Sentinel)
-- **"Distillation" Reconstruction**: Uses `libvips` to decode images into raw pixel buffers and re-encode them, stripping all metadata (EXIF/GPS) automatically.
-- **Pixel-Flood Defense**: Pre-computes the uncompressed bitmap size to prevent memory-exhaustion attacks from "Image Bombs."
-- **Animation Flattening**: Forcefully reduces complex animated formats to a single static frame to minimize attack surface.
+#### 🛡️ CSV Defense Layers
+| Layer | Defense | Description |
+| :---: | :--- | :--- |
+| **1** | **CSRF Protection** | Validates `hash_equals` token for every POST request. |
+| **2** | **Multi-Dim Rate Limiting** | Limits uploads per IP + Session (10/min) to prevent DoS. |
+| **3** | **Content-First Scan** | Uses MIME detection & full-file binary scan (ELF, EXE, PHP). |
+| **4** | **Strict Formula Guard** | Rejects rows starting with dangerous triggers (`=`, `+`, `-`, `@`). |
+| **5** | **Normalization Shield** | NFC Normalization + UTF-7/Overlong detection. |
+| **6** | **Business Logic** | Validates data integrity (e.g. negative salaries, email formats). |
+| **7** | **Atomic Commit & Cap** | Transactions for consistency + Error Capping to prevent DB DoS. |
+| **8** | **Quarantine** | Processes uploads outside the public web root. |
+| **9** | **Audit Trail** | Detailed forensic logs of every action, including session IDs. |
+| **10** | **Hardened Headers** | Blocks XSS and Clickjacking via CSP and X-Frame-Options. |
 
 ---
 
-## 🏗️ The 8-Layer Professional Defense Pipeline
+### 2. 📄 PDF Bastion Engine (Chapter 3 Integration)
+The PDF engine is built for **Structural Deconstruction** and **Semantic Understanding**.
 
-The Gateway orchestrates every file through a centralized high-assurance pipeline:
-
-| Layer | Component | Deep Security Detail |
+#### 🛡️ PDF Professional Defense Layers
+| Layer | Defense | Security Goal |
 | :---: | :--- | :--- |
-| **1** | **Ingress Perimeter** | `finfo` byte-matching + Strict Extension Allow-list. Blocks extension spoofing. |
-| **2** | **Identity Sanitization** | Cryptographically secure UUID renaming + Zero-Trust path isolation. |
-| **3** | **Structural Sentinel** | Pre-parsing for resource caps: Pixel count (Images), Object count (PDF), and Row caps (CSV). |
-| **4** | **Signal Intelligence** | Multi-pattern signature scanning for `<?php`, `system()`, and shellcode markers. |
-| **5** | **Semantic Authority** | Parser-level tree analysis. Understanding the *meaning* of the data, not just the bytes. |
-| **6** | **Authoritative Scrub** | **RECONSTRUCTION**: QPDF Linearization, Vips Distillation, and NFC Normalization. |
-| **7** | **Post-Sanitize Audit** | Mandatory secondary scan of the "cleaned" file to ensure structural safety. |
-| **8** | **Forensic Commitment** | SHA-256 integrity hashing and detailed "Threat Delta" logging in the Database. |
+| **1** | **Identity Audit** | SHA-256 Reputation check against the malicious signature database. |
+| **2** | **Boundary Guard** | Verification of `%PDF` Magic Bytes and Truncated Trailer detection. |
+| **3** | **Resource Guard** | Immediate rejection of "PDF Bombs" via object/stream count analysis. |
+| **4** | **Semantic Scan** | Walking the `qpdf --json` tree to find functional `/JS`, `/Launch`, or `/Action` objects. |
+| **5** | **Regex Fallback** | Deep binary scanning for secondary indicators and obfuscated anomalies. |
+| **6** | **Confidence Score** | Decision engine combining hard Evidence (Semantic) and weak Signals (Regex). |
+| **7** | **Authoritative Scrub** | Mandatory structural linearization and metadata destruction. |
+| **8** | **Forensic Verify** | Post-sanitization re-scan to ensure 100% "Perfect-Safe" output. |
+
+---
+
+### 3. 🖼️ Image Sentinel Engine (Chapter 4 Integration)
+The image engine follows the **"Distillation"** approach via the **Decode-or-Die** philosophy.
+
+#### 🛡️ Image Professional Defense Layers
+| Layer | Defense | Security Goal |
+| :---: | :--- | :--- |
+| **1** | **Traffic Guard** | Rate limiting and CSRF protection to block automation. |
+| **2** | **Boundary Check** | Strict verification of file extensions and MIME types. |
+| **3** | **Structure Check** | Verification of Magic Bytes signatures against the claimed MIME type. |
+| **4** | **Resource Guard** | Pre-computation of `WxH` to block Pixel Flood DoS attacks. |
+| **5** | **Signal Scan** | Searching raw bytes for text payloads (`<?php`, `<script`) to flag polyglots. |
+| **6** | **Authoritative Scrub** | **"Decode-or-Die"** via `libvips`: Strip metadata, flatten frames, normalize. |
+| **7** | **Integrity Verify** | Post-sanitization confirmation of valid image structure. |
+| **8** | **Secure Delivery** | Serving via `Content-Security-Policy` and forced-download headers. |
+
+---
+
+## 🏗️ The 8-Layer Unified Pipeline
+The Gateway orchestrates every file through a centralized high-assurance pipeline as detailed in the technical report.
 
 ---
 
@@ -61,7 +85,7 @@ The Gateway orchestrates every file through a centralized high-assurance pipelin
 ├── test/
 │   └── malicious_samples/      # ☣️ Malware Laboratory (Bombs & Polyglots)
 ├── logs/                       # Forensic streams
-└── quarantine/                 # 🔒 Isolated workbench directory
+└── quarantine/               # 🔒 Isolated workbench directory
 ```
 
 ---

@@ -37,3 +37,4 @@ __pycache__/
 
 # Project specific
 docker_history.log
+06-military-grade-logging/mysql-data/

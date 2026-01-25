@@ -1,0 +1,28 @@
+# Military-Grade MySQL Logging Configuration
+# Place this in /etc/mysql/conf.d/custom.cnf
+
+[mysqld]
+# === ERROR LOGGING ===
+# Log to file instead of syslog
+log_error = /var/log/mysql/error.log
+# Level 2 = errors + warnings
+log_error_verbosity = 2
+
+# === SLOW QUERY LOGGING ===
+# Crucial for finding ERP performance bottlenecks
+slow_query_log = 1
+slow_query_log_file = /var/log/mysql/slow.log
+# Log anything over 2 seconds
+long_query_time = 2
+# Log queries that don't use indexes (prevent full table scans)
+log_queries_not_using_indexes = 1
+# Prevent flooding logs with small scans (minimum 1000 rows)
+# min_examined_row_limit = 1000
+
+# === SECURITY / AUDIT ===
+# General log is OFF in production (Security risk + Performance hit)
+general_log = 0
+
+# === BINARY LOGGING (For Recovery) ===
+# log_bin = /var/log/mysql/mysql-bin
+# expire_logs_days = 7

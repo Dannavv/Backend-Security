@@ -1,0 +1,37 @@
+services:
+  app:
+    build: .
+    container_name: erp_app_logged
+    ports:
+      - "8086:80"
+    volumes:
+      - .:/var/www/html
+      - ./logs:/var/www/html/logs
+      - ./logs/apache:/var/log/apache2
+    environment:
+      - APP_ENV=development
+      - DB_HOST=mysql_db
+      - DB_NAME=erp_db
+      - DB_USER=erp_user
+      - DB_PASS=erp_password
+    depends_on:
+      - mysql_db
+
+  mysql_db:
+    image: mysql:8.0
+    container_name: erp_mysql_logged
+    restart: always
+    environment:
+      MYSQL_DATABASE: erp_db
+      MYSQL_USER: erp_user
+      MYSQL_PASSWORD: erp_password
+      MYSQL_ROOT_PASSWORD: root_password
+    volumes:
+      - ./mysql-data:/var/lib/mysql
+      - ./config/mysql-logging.cnf:/etc/mysql/conf.d/custom.cnf
+      - ./logs/mysql:/var/log/mysql
+    command: >
+      --log-error=/var/log/mysql/error.log --slow-query-log=ON --slow-query-log-file=/var/log/mysql/slow.log --long-query-time=2 --log-queries-not-using-indexes=ON
+
+volumes:
+  mysql-data:

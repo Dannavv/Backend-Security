@@ -36,6 +36,29 @@ The pinnacle of the series: A centralized, multi-engine security perimeter. Comb
 *   **Logic**: Functional gateway routing with isolated engine isolation.
 *   **Defense**: Multi-layer Ingress Protection and high-assurance sanitization authority.
 
+### [06. Military-Grade Logging](./06-military-grade-logging/)
+Enterprise-grade audit logging system with forensic capabilities. Implements structured logging with request IDs, IP detection, PII redaction, and tamper-evident log files.
+
+*   **Logic**: Centralized `erp_log()` function with contextual metadata.
+*   **Defense**: Automatic PII masking, Luhn validation for credit cards, structured JSON output.
+
+### [07. Military-Grade Secure Query](./07-military-grade-query/)
+The ultimate secure database gateway: An 8-layer security pipeline consolidated into a single `execute_query_d1()` function. Replaces 237 scattered security implementations with one enforced entry point.
+
+*   **Logic**: Sequential validation pipeline with early rejection and full audit trail.
+*   **Defense**: POST enforcement, CSRF, rate limiting, input validation, query blacklist, prepared statements, error masking.
+*   **Layers**:
+    | # | Layer | Blocks |
+    |---|-------|--------|
+    | 1 | POST Method | CSRF via URL |
+    | 2 | CSRF Token | Cross-site forgery |
+    | 3 | Rate Limiting | Brute force, DoS |
+    | 4 | Param Count | Memory exhaustion |
+    | 5 | Input Validation | Encoding attacks |
+    | 6 | Query Blacklist | SLEEP, BENCHMARK |
+    | 7 | Prepared Stmt | SQL injection |
+    | 8 | Error Masking | Info disclosure |
+
 ---
 
 ## 🛠️ Global Technology Stack

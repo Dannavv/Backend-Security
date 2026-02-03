@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: ch7-secure-query
+    ports:
+      - "8087:80"
+    volumes:
+      - ./include:/var/www/html/include
+      - ./public:/var/www/html/public
+      - ./logs:/var/www/html/logs
+    environment:
+      - DB_HOST=mysql
+      - DB_NAME=secure_query_demo
+      - DB_USER=demo_user
+      - DB_PASS=demo_secure_pass
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  mysql:
+    image: mariadb:10.6
+    container_name: ch7-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_secure_pass
+      MYSQL_DATABASE: secure_query_demo
+      MYSQL_USER: demo_user
+      MYSQL_PASSWORD: demo_secure_pass
+    volumes:
+      - ./mysql-data:/var/lib/mysql
+      - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
